@@ -1,4 +1,5 @@
 import json, sqlite3, secrets, webbrowser, threading, time
+from excel_export import workbook
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
@@ -27,6 +28,14 @@ class Handler(SimpleHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == '/api/state':
             self.respond({'state': state(), 'token': TOKEN}); return
+        if path == '/api/excel':
+            body = workbook(state())
+            self.send_response(200)
+            self.send_header('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            self.send_header('Content-Disposition','attachment; filename="sweets-export.xlsx"')
+            self.send_header('Content-Length',str(len(body)))
+            self.send_header('Cache-Control','no-store')
+            self.end_headers(); self.wfile.write(body); return
         if path == '/api/backup':
             self.respond({'format':'sweets-local-v1','state':state()}, download=True); return
         super().do_GET()
