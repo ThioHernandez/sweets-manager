@@ -25,6 +25,9 @@ def workbook(state):
         ('المشتريات',['الرقم','المادة','الكمية','الوحدة','سعر الوحدة','الإجمالي','المورد','التاريخ','طريقة الشراء','الكراتين','وحدات الكرتون','سعر الكرتون','ملاحظات'],[[r.get('id'),r.get('material'),r.get('quantity'),r.get('unit'),r.get('unitPrice'),r.get('cartons',0)*r.get('cartonPrice',0) if r.get('purchaseMode')=='carton' else r.get('quantity',0)*r.get('unitPrice',0),r.get('supplier',''),r.get('date',''),'بالكرتون' if r.get('purchaseMode')=='carton' else 'بالوحدة',r.get('cartons','') if r.get('purchaseMode')=='carton' else '',r.get('unitsPerCarton','') if r.get('purchaseMode')=='carton' else '',r.get('cartonPrice','') if r.get('purchaseMode')=='carton' else '',r.get('notes','')] for r in state.get('sweet-purchases',[])]),
         ('المصاريف',['الرقم','الوصف','التصنيف','المبلغ','التاريخ'],[[r.get(k,'') for k in ['id','title','category','amount','date']] for r in state.get('sweet-expenses',[])]),
         ('التوصيل',['رقم الطلب','العميل','الموصل','العنوان','التاريخ','الوقت','الحالة','الأجر','تسوية الأجر'],deliveries)]
+    return sheets_workbook(sheets)
+
+def sheets_workbook(sheets):
     ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main'
     def clean(v):return ''.join(c for c in str(v) if c in '\t\n\r' or ord(c)>=32)
     def col(n):

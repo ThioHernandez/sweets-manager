@@ -4,7 +4,7 @@
   initial.send();
   if (initial.status !== 200) throw new Error('Cannot open local database');
   const loaded = JSON.parse(initial.responseText);
-  const keys = ['sweet-orders','sweet-products','sweet-customers','sweet-expenses','sweet-purchases','sweet-couriers'];
+  const keys = ['sweet-orders','sweet-products','sweet-customers','sweet-expenses','sweet-purchases','sweet-couriers','sweet-report-presets'];
   const memory = new Map(keys.map(key => [key, JSON.stringify(loaded.state[key] || (key === 'sweet-couriers' ? [{name:'أحمد'},{name:'سالم'},{name:'مريم'}] : []))]));
   const storage = window.localStorage;
   const nativeGet = Storage.prototype.getItem;
@@ -21,6 +21,11 @@
   Storage.prototype.setItem = function(key,value) {
     if (this === storage && keys.includes(key)) { request('/api/write',{key,value:JSON.parse(value)}); memory.set(key,String(value)); }
     else nativeSet.call(this,key,value);
+  };
+  window.exportSweetsReport = async function(sheets) {
+    const response = await fetch('/api/report', {method:'POST',headers:{'Content-Type':'application/json','X-Local-Token':loaded.token},body:JSON.stringify({sheets})});
+    if (!response.ok) throw new Error('تعذر تصدير التقرير');
+    const url=URL.createObjectURL(await response.blob()); const a=document.createElement('a'); a.href=url;a.download='sweets-report.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
   window.addEventListener('DOMContentLoaded',function () {
     const bar = document.createElement('div');

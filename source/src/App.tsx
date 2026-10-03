@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { PurchasesPage, ExpensesPage } from './FinancePages';
 import './finance.css';
+import { ReportsPage } from './ReportsPage';
+import './reports.css';
 import {
   Cake as CakeSlice,
   CheckCircle as CheckCircle2,
@@ -24,7 +26,7 @@ import {
   WhatsappLogo,
 } from '@phosphor-icons/react';
 
-type Page = 'dashboard' | 'orders' | 'customers' | 'products' | 'purchases' | 'expenses' | 'delivery';
+type Page = 'dashboard' | 'orders' | 'customers' | 'products' | 'purchases' | 'expenses' | 'delivery' | 'reports';
 type OrderStatus = 'جديد' | 'مؤكد' | 'قيد التجهيز' | 'جاهز' | 'خرج للتوصيل' | 'مكتمل' | 'مؤجل' | 'ملغي';
 type DeliveryType = 'استلام من المشروع' | 'توصيل';
 type PaymentMethod = 'تحويل بنكي' | 'نقدي' | 'بطاقة/رابط' | 'غير محدد';
@@ -417,6 +419,7 @@ function App() {
     { key: 'products' as Page, label: 'الأصناف والتكاليف', icon: CakeSlice },
     { key: 'purchases' as Page, label: 'المشتريات', icon: ShoppingBag },
     { key: 'expenses' as Page, label: 'المصاريف', icon: WalletCards },
+    { key: 'reports' as Page, label: 'التقارير', icon: ReceiptText },
     { key: 'delivery' as Page, label: 'التوصيل', icon: Truck },
   ];
 
@@ -595,6 +598,7 @@ function App() {
           </section>
         )}
 
+        {page === 'reports' && <ReportsPage orders={orders} products={products} expenses={expenses} />}
         {page === 'purchases' && <PurchasesPage />}
         {page === 'expenses' && <ExpensesPage rows={expenses} onSave={saveExpenses} onAdd={() => setExpenseModal(true)} />}
 

@@ -1,5 +1,5 @@
 import json, sqlite3, secrets, webbrowser, threading, time
-from excel_export import workbook
+from excel_export import workbook, sheets_workbook
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
@@ -8,7 +8,7 @@ DATA = ROOT / 'data'
 DATA.mkdir(exist_ok=True)
 DB = DATA / 'sweets.sqlite3'
 TOKEN = secrets.token_urlsafe(32)
-KEYS = {'sweet-orders','sweet-products','sweet-customers','sweet-expenses','sweet-purchases','sweet-couriers'}
+KEYS = {'sweet-orders','sweet-products','sweet-customers','sweet-expenses','sweet-purchases','sweet-couriers','sweet-report-presets'}
 
 def connect():
     db = sqlite3.connect(DB)
@@ -55,6 +55,21 @@ class Handler(SimpleHTTPRequestHandler):
             if size > 20_000_000: raise ValueError('File too large')
             payload = json.loads(self.rfile.read(size))
             path = urlparse(self.path).path
+            if path == '/api/report':
+                sheets = payload.get('sheets')
+                if not isinstance(sheets,list) or not 1 <= len(sheets) <= 10: raise ValueError('Invalid report')
+                for sheet in sheets:
+                    if not isinstance(sheet,list) or len(sheet)!=3: raise ValueError('Invalid sheet')
+                    name, headers, rows = sheet
+                    if not isinstance(name,str) or not name or len(name)>31 or any(c in name for c in '[]:*?/\\'): raise ValueError('Invalid name')
+                    if not isinstance(headers,list) or not 1 <= len(headers)<=50 or not all(isinstance(h,str) for h in headers): raise ValueError('Invalid columns')
+                    if not isinstance(rows,list) or len(rows)>100000 or not all(isinstance(r,list) and len(r)==len(headers) and all(v is None or isinstance(v,(str,int,float,bool)) for v in r) for r in rows): raise ValueError('Invalid rows')
+                body = sheets_workbook(sheets)
+                self.send_response(200)
+                self.send_header('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                self.send_header('Content-Disposition','attachment; filename="sweets-report.xlsx"')
+                self.send_header('Content-Length',str(len(body)))
+                self.end_headers(); self.wfile.write(body); return
             if path == '/api/write':
                 key, value = payload['key'], payload['value']
                 if key not in KEYS or not isinstance(value,list): raise ValueError('Invalid data')
