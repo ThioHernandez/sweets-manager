@@ -8,7 +8,7 @@ DATA = ROOT / 'data'
 DATA.mkdir(exist_ok=True)
 DB = DATA / 'sweets.sqlite3'
 TOKEN = secrets.token_urlsafe(32)
-KEYS = {'sweet-orders','sweet-products','sweet-customers','sweet-expenses','sweet-purchases'}
+KEYS = {'sweet-orders','sweet-products','sweet-customers','sweet-expenses','sweet-purchases','sweet-couriers'}
 
 def connect():
     db = sqlite3.connect(DB)

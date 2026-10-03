@@ -4,8 +4,8 @@
   initial.send();
   if (initial.status !== 200) throw new Error('Cannot open local database');
   const loaded = JSON.parse(initial.responseText);
-  const keys = ['sweet-orders','sweet-products','sweet-customers','sweet-expenses','sweet-purchases'];
-  const memory = new Map(keys.map(key => [key, JSON.stringify(loaded.state[key] || [])]));
+  const keys = ['sweet-orders','sweet-products','sweet-customers','sweet-expenses','sweet-purchases','sweet-couriers'];
+  const memory = new Map(keys.map(key => [key, JSON.stringify(loaded.state[key] || (key === 'sweet-couriers' ? [{name:'أحمد'},{name:'سالم'},{name:'مريم'}] : []))]));
   const storage = window.localStorage;
   const nativeGet = Storage.prototype.getItem;
   const nativeSet = Storage.prototype.setItem;

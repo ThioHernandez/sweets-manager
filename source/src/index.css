@@ -2081,3 +2081,23 @@ select:focus-visible {
   }
 }
 
+
+/* Keep long order references inside their grid cell on every screen size. */
+.order-id {
+  min-width: 0;
+  max-width: 100%;
+}
+.order-id strong {
+  display: block;
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.order-customer {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

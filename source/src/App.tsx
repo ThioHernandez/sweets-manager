@@ -15,7 +15,6 @@ import {
   MagnifyingGlass as Search,
   ShoppingBagOpen as ShoppingBag,
   Truck,
-  User as UserRound,
   UsersThree as UsersRound,
   Wallet as WalletCards,
   X,
@@ -86,7 +85,7 @@ type OrderDraft = Omit<Order, 'id' | 'customerId'>;
 
 const statusFlow: OrderStatus[] = ['جديد', 'مؤكد', 'قيد التجهيز', 'جاهز', 'خرج للتوصيل', 'مكتمل'];
 const statusOptions: OrderStatus[] = [...statusFlow, 'مؤجل', 'ملغي'];
-const couriers = ['بدون توصيل', 'أحمد', 'سالم', 'مريم'];
+type CourierRecord = { name: string };
 
 const localToday = () => {
   const date = new Date();
@@ -266,6 +265,11 @@ function App() {
   const [products, setProducts] = useState<Product[]>(() => loadState('sweet-products', initialProducts));
   const [orders, setOrders] = useState<Order[]>(() => normalizeOrders(loadState<unknown>('sweet-orders', initialOrders)));
   const [customers, setCustomers] = useState<Customer[]>(() => loadState('sweet-customers', initialCustomers));
+  const [courierRecords, setCourierRecords] = useState<CourierRecord[]>(() => loadState('sweet-couriers', [{ name: 'أحمد' }, { name: 'سالم' }, { name: 'مريم' }]));
+  const couriers = ['بدون توصيل', ...courierRecords.map(c => c.name)];
+  const [courierEditor, setCourierEditor] = useState<{ original: string | null; name: string } | null>(null);
+  const [courierError, setCourierError] = useState('');
+  const saveCouriers = (value: CourierRecord[]) => { localStorage.setItem('sweet-couriers', JSON.stringify(value)); setCourierRecords(value); };
   const [expenses, setExpenses] = useState<Expense[]>(() => loadState('sweet-expenses', initialExpenses));
   const [search, setSearch] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
@@ -596,9 +600,9 @@ function App() {
 
         {page === 'delivery' && (
           <section className="page">
-            <PageIntro title="التوصيل" description="متابعة الطلبات المسندة لكل موصّل، المستحق له، وما تم تسويته فعليًا." />
+            <PageIntro title="التوصيل" description="إدارة الموصّلين ومتابعة الطلبات والمستحقات والتسويات." action="إضافة موصّل" onAction={() => { setCourierError(''); setCourierEditor({ original: null, name: '' }); }} />
             <div className="courier-grid">
-              {couriers.filter(name => name !== 'بدون توصيل').map(courier => {
+              {Array.from(new Set([...couriers.filter(name => name !== 'بدون توصيل'), ...orders.map(o => o.courier).filter(c => c && c !== 'بدون توصيل')])).map(courier => {
                 const assigned = orders.filter(order => order.courier === courier && order.status !== 'ملغي');
                 const pending = assigned.filter(order => order.status !== 'مكتمل');
                 const due = assigned.reduce((sum, order) => sum + order.courierPay, 0);
@@ -606,6 +610,10 @@ function App() {
                 return (
                   <article className="courier-card" key={courier}>
                     <div className="courier-head"><div className="avatar big">{courier.charAt(0)}</div><div><h3>{courier}</h3><span>{pending.length} توصيل نشط</span></div></div>
+                    <RecordActions label={'الموصّل ' + courier} onEdit={() => { setCourierError(''); setCourierEditor({ original: courier, name: courier }); }} onDelete={() => {
+                      if (orders.some(o => o.courier === courier)) { window.alert('هذا الموصّل مرتبط بطلبات. أعد إسناد طلباته أو أزل إسناد التوصيل أولًا، ثم احذفه للحفاظ على المستحقات.'); return; }
+                      if (window.confirm('حذف الموصّل ' + courier + '؟')) saveCouriers(courierRecords.filter(c => c.name !== courier));
+                    }} />
                     <div className="courier-due"><span>إجمالي المستحق</span><strong>{omr(due)} ر.ع</strong></div>
                     <div className="courier-due"><span>تمت تسويته</span><strong>{omr(settled)} ر.ع</strong></div>
                     <div className="courier-due outstanding"><span>المتبقي للموصّل</span><strong>{omr(Math.max(due - settled, 0))} ر.ع</strong></div>
@@ -644,7 +652,7 @@ function App() {
 
       {(orderModal || editingOrder) && (
         <Modal title={editingOrder ? 'تعديل الطلب #' + editingOrder.id : 'تسجيل طلب جديد'} onClose={() => { setOrderModal(false); setEditingOrder(null); }} wide>
-          <OrderForm key={editingOrder?.id ?? 'new'} initial={editingOrder ?? undefined} products={products} customers={customers} onSubmit={createOrder} />
+          <OrderForm key={editingOrder?.id ?? 'new'} initial={editingOrder ?? undefined} couriers={Array.from(new Set([...couriers, ...orders.map(o => o.courier)]))} products={products} customers={customers} onSubmit={createOrder} />
         </Modal>
       )}
 
@@ -668,8 +676,26 @@ function App() {
           setEditingCustomer(null);
         }} />
       </Modal>}
+      {courierEditor && <Modal title={courierEditor.original ? 'تعديل الموصّل' : 'إضافة موصّل'} onClose={() => setCourierEditor(null)}>
+        <form className="form" onSubmit={e => {
+          e.preventDefault();
+          const name = courierEditor.name.trim();
+          const original = courierEditor.original;
+          const existing = Array.from(new Set([...courierRecords.map(c => c.name), ...orders.map(o => o.courier)]));
+          if (!name || name === 'بدون توصيل') { setCourierError('أدخل اسم الموصّل.'); return; }
+          if (existing.some(c => c === name && c !== original)) { setCourierError('اسم الموصّل موجود بالفعل.'); return; }
+          const next = courierRecords.filter(c => c.name !== original);
+          saveCouriers([...next, { name }]);
+          if (original) saveOrders(orders.map(o => o.courier === original ? { ...o, courier: name } : o));
+          setCourierEditor(null);
+        }}>
+          {courierError && <div className="form-error">{courierError}</div>}
+          <Field label="اسم الموصّل"><input value={courierEditor.name} onChange={e => setCourierEditor({ ...courierEditor, name: e.target.value })} /></Field>
+          <button className="primary wide" type="submit">حفظ الموصّل</button>
+        </form>
+      </Modal>}
       {editingDelivery && <Modal title={'تعديل توصيل الطلب #' + editingDelivery.id} onClose={() => setEditingDelivery(null)}>
-        <DeliveryForm initial={editingDelivery} onSubmit={updated => {
+        <DeliveryForm couriers={Array.from(new Set([...couriers, ...orders.map(o => o.courier)]))} initial={editingDelivery} onSubmit={updated => {
           saveOrders(orders.map(o => o.id === updated.id ? updated : o));
           setEditingDelivery(null);
         }} />
@@ -835,7 +861,7 @@ function Modal({ title, children, onClose, wide = false }: { title: string; chil
   );
 }
 
-function OrderForm({ products, customers, onSubmit, initial }: { products: Product[]; customers: Customer[]; onSubmit: (order: OrderDraft) => void; initial?: Order }) {
+function OrderForm({ products, customers, onSubmit, initial, couriers }: { couriers: string[]; products: Product[]; customers: Customer[]; onSubmit: (order: OrderDraft) => void; initial?: Order }) {
   const [customerChoice, setCustomerChoice] = useState('');
   const [customer, setCustomer] = useState(initial?.customer ?? '');
   const [phone, setPhone] = useState(initial?.phone ?? '');
@@ -978,7 +1004,7 @@ function OrderForm({ products, customers, onSubmit, initial }: { products: Produ
             }
           }}><option>استلام من المشروع</option><option>توصيل</option></select></Field>
           {deliveryType === 'توصيل' && <Field label="رسوم التوصيل على العميل"><input type="number" min="0" step="0.1" value={deliveryFee} onChange={event => setDeliveryFee(Number(event.target.value))} /></Field>}
-          {deliveryType === 'توصيل' && <Field label="الموصّل"><select value={courier} onChange={event => setCourier(event.target.value)}>{couriers.filter(name => name !== 'بدون توصيل').map(name => <option key={name}>{name}</option>)}</select></Field>}
+          {deliveryType === 'توصيل' && <Field label="الموصّل"><select value={courier} onChange={event => setCourier(event.target.value)}><option value="بدون توصيل">اختر الموصّل</option>{couriers.filter(name => name !== 'بدون توصيل').map(name => <option key={name}>{name}</option>)}</select></Field>}
           {deliveryType === 'توصيل' && <Field label="أجر الموصّل"><input type="number" min="0" step="0.1" value={courierPay} onChange={event => setCourierPay(Number(event.target.value))} /></Field>}
         </div>
       </section>
@@ -1062,7 +1088,7 @@ function ExpenseForm({ onSubmit }: { onSubmit: (expense: Omit<Expense, 'id'>) =>
   );
 }
 
-function DeliveryForm({ initial, onSubmit }: { initial: Order; onSubmit: (order: Order) => void }) {
+function DeliveryForm({ initial, onSubmit, couriers }: { couriers: string[]; initial: Order; onSubmit: (order: Order) => void }) {
   const [draft, setDraft] = useState({ ...initial });
   const [error, setError] = useState('');
   return <form className="form" onSubmit={e => {
