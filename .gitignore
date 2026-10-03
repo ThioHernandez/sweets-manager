@@ -1,0 +1,16 @@
+data/
+*.sqlite*
+*.db
+*backup*.json
+node_modules/
+source/dist/
+__pycache__/
+*.pyc
+.env
+.env.*
+.DS_Store
+Thumbs.db
+*.log
+*.woff*
+*.ttf
+*.otf
