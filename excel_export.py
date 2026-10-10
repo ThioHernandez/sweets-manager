@@ -2,9 +2,14 @@
 import io, zipfile, math
 from xml.sax.saxutils import escape
 
+def tax_values(amount,r):
+    mode=r.get('taxMode','unknown');rate=r.get('taxRate',5)
+    tax=0 if mode in ('unknown','none') else round(r.get('taxManual') if r.get('taxManual') is not None else (amount-amount/(1+rate/100) if mode=='included' else amount*rate/100),3)
+    return [r.get('taxMode','غير محددة'),rate if mode in ('included','excluded') else '',round(amount-tax,3) if mode=='included' else amount,tax,round(amount+tax,3) if mode=='excluded' else amount]
+
 def workbook(state):
     products = {p['id']:p for p in state.get('sweet-products',[])}
-    orders=[]; items=[]; deliveries=[]
+    orders=[]; items=[]; deliveries=[]; returns=[]
     for o in state.get('sweet-orders',[]):
         sale=cost=0
         for i in o.get('items',[]):
@@ -12,19 +17,22 @@ def workbook(state):
             price=i.get('salePrice',p.get('salePrice',0)); unit_cost=i.get('cost',p.get('cost',0)); qty=i.get('qty',0)
             sale+=price*qty; cost+=unit_cost*qty
             items.append([o.get('id'),i.get('name',p.get('name','')),qty,price,unit_cost,qty*price,qty*unit_cost])
-        total=max(sale-o.get('discount',0),0)+o.get('deliveryFee',0)
+        returned=sum(r.get('credit',0) for r in o.get('returns',[])); refunded=sum(r.get('refundPaid',0) for r in o.get('returns',[])); waste=sum(r.get('qty',0)*r.get('unitCost',0) for r in o.get('returns',[]) if r.get('disposition')=='تالف')
+        total=max(sale-o.get('discount',0)-returned,0)+o.get('deliveryFee',0)
+        for r in o.get('returns',[]): returns.append([o.get('id'),o.get('customer'),r.get('date'),r.get('name'),r.get('qty'),r.get('disposition'),r.get('reason'),r.get('credit'),r.get('unitCost',0)*r.get('qty',0),r.get('refundPaid',0)])
         profit=total-cost-o.get('courierPay',0)
-        orders.append([o.get(k,'') for k in ['id','customer','phone','address','date','time','status','deliveryType']]+[sale,o.get('discount',0),o.get('deliveryFee',0),total,o.get('paid',0),max(total-o.get('paid',0),0),cost,profit,o.get('paymentMethod',''),o.get('notes','')])
+        orders.append([o.get(k,'') for k in ['id','customer','phone','address','date','time','status','deliveryType']]+[sale,o.get('discount',0),o.get('deliveryFee',0),total,o.get('paid',0),max(total-(o.get('paid',0)-refunded),0),cost,profit,o.get('paymentMethod',''),o.get('notes',''),returned,waste,max(o.get('paid',0)-refunded-total,0),'بالأمانة' if o.get('saleBasis')=='consignment' else 'بيع نهائي',sum(i.get('qty',0) for i in o.get('items',[])),sum(r.get('qty',0) for r in o.get('returns',[])),sum(i.get('qty',0) for i in o.get('items',[]))-sum(r.get('qty',0) for r in o.get('returns',[])),refunded])
         if o.get('courier') and o.get('courier')!='بدون توصيل':
             deliveries.append([o.get(k,'') for k in ['id','customer','courier','address','date','time','status']]+[o.get('courierPay',0),'مدفوع' if o.get('courierSettled') else 'غير مدفوع'])
-    sheets=[
-        ('الطلبات',['رقم الطلب','العميل','الهاتف','العنوان','التاريخ','الوقت','الحالة','الاستلام','قيمة الأصناف','الخصم','رسوم التوصيل','الإجمالي','المدفوع','المتبقي','تكلفة الإنتاج','الربح','طريقة الدفع','ملاحظات'],orders),
+    sheets=[('المرتجعات والتالف',['رقم الطلب','العميل','تاريخ المرتجع','الصنف','الكمية','المصير','السبب','قيمة الخصم','تكلفة المرتجع','المبلغ المردود'],returns),
+        ('الطلبات',['رقم الطلب','العميل','الهاتف','العنوان','التاريخ','الوقت','الحالة','الاستلام','قيمة الأصناف','الخصم','رسوم التوصيل','الإجمالي','المدفوع','المتبقي','تكلفة الإنتاج','الربح','طريقة الدفع','ملاحظات','قيمة المرتجعات','تكلفة التالف','واجب رده','طريقة البيع','الكمية المرسلة','الكمية المرتجعة','الكمية بعد المرتجع','المبلغ المردود'],orders),
         ('تفاصيل الأصناف',['رقم الطلب','الصنف','الكمية','سعر الوحدة','تكلفة الوحدة','قيمة البند','تكلفة البند'],items),
         ('العملاء',['الرقم','الاسم','الهاتف','العنوان'],[[r.get(k,'') for k in ['id','name','phone','address']] for r in state.get('sweet-customers',[])]),
         ('الأصناف',['الرقم','الاسم','الوحدة','سعر البيع','التكلفة'],[[r.get(k,'') for k in ['id','name','unit','salePrice','cost']] for r in state.get('sweet-products',[])]),
-        ('المشتريات',['الرقم','المادة','الكمية','الوحدة','سعر الوحدة','الإجمالي','المورد','التاريخ','طريقة الشراء','الكراتين','وحدات الكرتون','سعر الكرتون','ملاحظات'],[[r.get('id'),r.get('material'),r.get('quantity'),r.get('unit'),r.get('unitPrice'),r.get('cartons',0)*r.get('cartonPrice',0) if r.get('purchaseMode')=='carton' else r.get('quantity',0)*r.get('unitPrice',0),r.get('supplier',''),r.get('date',''),'بالكرتون' if r.get('purchaseMode')=='carton' else 'بالوحدة',r.get('cartons','') if r.get('purchaseMode')=='carton' else '',r.get('unitsPerCarton','') if r.get('purchaseMode')=='carton' else '',r.get('cartonPrice','') if r.get('purchaseMode')=='carton' else '',r.get('notes','')] for r in state.get('sweet-purchases',[])]),
-        ('المصاريف',['الرقم','الوصف','التصنيف','المبلغ','التاريخ'],[[r.get(k,'') for k in ['id','title','category','amount','date']] for r in state.get('sweet-expenses',[])]),
+        ('المشتريات',['الرقم','المادة','الكمية','الوحدة','سعر الوحدة','الإجمالي','المورد','التاريخ','طريقة الشراء','الكراتين','وحدات الكرتون','سعر الكرتون','ملاحظات','حالة الضريبة','نسبة الضريبة','قبل الضريبة','الضريبة','الإجمالي النهائي'],[[r.get('id'),r.get('material'),r.get('quantity'),r.get('unit'),r.get('unitPrice'),r.get('cartons',0)*r.get('cartonPrice',0) if r.get('purchaseMode')=='carton' else r.get('quantity',0)*r.get('unitPrice',0),r.get('supplier',''),r.get('date',''),'بالكرتون' if r.get('purchaseMode')=='carton' else 'بالوحدة',r.get('cartons','') if r.get('purchaseMode')=='carton' else '',r.get('unitsPerCarton','') if r.get('purchaseMode')=='carton' else '',r.get('cartonPrice','') if r.get('purchaseMode')=='carton' else '',r.get('notes','')]+tax_values(r.get('cartons',0)*r.get('cartonPrice',0) if r.get('purchaseMode')=='carton' else r.get('quantity',0)*r.get('unitPrice',0),r) for r in state.get('sweet-purchases',[])]),
+        ('المصاريف',['الرقم','الوصف','التصنيف','المبلغ المدخل','التاريخ','حالة الضريبة','نسبة الضريبة','قبل الضريبة','الضريبة','الإجمالي النهائي'],[[r.get(k,'') for k in ['id','title','category','amount','date']]+tax_values(r.get('amount',0),r) for r in state.get('sweet-expenses',[])]),
         ('التوصيل',['رقم الطلب','العميل','الموصل','العنوان','التاريخ','الوقت','الحالة','الأجر','تسوية الأجر'],deliveries)]
+    sheets = sheets[1:] + sheets[:1]
     return sheets_workbook(sheets)
 
 def sheets_workbook(sheets):

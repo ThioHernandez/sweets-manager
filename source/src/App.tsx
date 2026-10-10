@@ -1,3 +1,5 @@
+import { TaxFields, taxValues, returnTotals, type TaxData, type ReturnRecord } from './Accounting';
+import { ReturnsEditor } from './ReturnsEditor';
 import { useMemo, useState } from 'react';
 import { PurchasesPage, ExpensesPage } from './FinancePages';
 import './finance.css';
@@ -55,6 +57,8 @@ type Customer = {
 };
 
 type Order = {
+  returns?: ReturnRecord[];
+  saleBasis?: string;
   id: number;
   customerId: number;
   customer: string;
@@ -75,7 +79,7 @@ type Order = {
   notes: string;
 };
 
-type Expense = {
+type Expense = TaxData & {
   id: number;
   title: string;
   category: string;
@@ -265,6 +269,7 @@ function App() {
   const [page, setPage] = useState<Page>('dashboard');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>(() => loadState('sweet-products', initialProducts));
+  const [returnOrderId, setReturnOrderId] = useState<number|null>(null);
   const [orders, setOrders] = useState<Order[]>(() => normalizeOrders(loadState<unknown>('sweet-orders', initialOrders)));
   const [customers, setCustomers] = useState<Customer[]>(() => loadState('sweet-customers', initialCustomers));
   const [courierRecords, setCourierRecords] = useState<CourierRecord[]>(() => loadState('sweet-couriers', [{ name: 'أحمد' }, { name: 'سالم' }, { name: 'مريم' }]));
@@ -312,10 +317,11 @@ function App() {
       const product = products.find(productItem => productItem.id === item.productId);
       return sum + (item.cost ?? product?.cost ?? 0) * item.qty;
     }, 0);
-    const afterDiscount = Math.max(sale - order.discount, 0);
+    const returned = returnTotals(order.returns);
+    const afterDiscount = Math.max(sale - order.discount - returned.credit, 0);
     const customerTotal = afterDiscount + order.deliveryFee;
     const profit = afterDiscount - productionCost + order.deliveryFee - order.courierPay;
-    const balance = Math.max(customerTotal - order.paid, 0);
+    const balance = Math.max(customerTotal - (order.paid-returned.refundPaid), 0);
     return { sale, productionCost, afterDiscount, customerTotal, profit, balance };
   };
 
@@ -333,7 +339,7 @@ function App() {
     const grossProfit = todays.reduce((sum, order) => sum + orderFinancials(order).profit, 0);
     const todayExpenses = expenses
       .filter(expense => expense.date === today)
-      .reduce((sum, expense) => sum + expense.amount, 0);
+      .reduce((sum, expense) => sum + taxValues(expense.amount,expense).total, 0);
     const outstanding = orders
       .filter(order => order.status !== 'ملغي')
       .reduce((sum, order) => sum + orderFinancials(order).balance, 0);
@@ -392,7 +398,9 @@ function App() {
       const p = products.find(p => p.id === item.productId);
       return { ...item, name: item.name ?? p?.name, salePrice: item.salePrice ?? p?.salePrice, cost: item.cost ?? p?.cost };
     });
-    const updated = { ...draft, items, id, customerId };
+    if(editingOrder?.returns?.length && (JSON.stringify(items)!==JSON.stringify(editingOrder.items)||draft.discount!==editingOrder.discount)) { window.alert('لا يمكن تغيير الأصناف أو الخصم بعد تسجيل مرتجعات. راجع المرتجعات أولًا.'); return; }
+    if(draft.paid<returnTotals(editingOrder?.returns).refundPaid){window.alert('المدفوع لا يمكن أن يقل عن المبلغ المردود للعميل.');return;}
+    const updated = { ...draft, items, id, customerId, returns:editingOrder?.returns, saleBasis:editingOrder?.saleBasis };
     saveOrders(editingOrder ? orders.map(o => o.id === id ? updated : o) : [updated, ...orders]);
     setEditingOrder(null);
     setOrderModal(false);
@@ -528,7 +536,7 @@ function App() {
                 <div><span className="eyebrow">آخر التحديثات</span><h3>أحدث الطلبات</h3></div>
                 <button className="text-btn" onClick={() => go('orders')}>إدارة الطلبات</button>
               </div>
-              <OrderCards orders={orders.slice(0, 4)} products={products} onStatus={changeStatus} financials={orderFinancials} paymentStatus={paymentStatus} onEdit={editOrder} onDelete={deleteOrder} />
+              <OrderCards orders={orders.slice(0, 4)} products={products} onStatus={changeStatus} financials={orderFinancials} paymentStatus={paymentStatus} onEdit={editOrder} onDelete={deleteOrder} onReturns={o=>setReturnOrderId(o.id)} />
             </div>
           </section>
         )}
@@ -541,7 +549,7 @@ function App() {
               <span className="result-count">{filteredOrders.length} طلب</span>
             </div>
             <div className="panel flush">
-              <OrderCards orders={filteredOrders} products={products} onStatus={changeStatus} financials={orderFinancials} paymentStatus={paymentStatus} onEdit={editOrder} onDelete={deleteOrder} detailed />
+              <OrderCards orders={filteredOrders} products={products} onStatus={changeStatus} financials={orderFinancials} paymentStatus={paymentStatus} onEdit={editOrder} onDelete={deleteOrder} onReturns={o=>setReturnOrderId(o.id)} detailed />
             </div>
           </section>
         )}
@@ -680,6 +688,7 @@ function App() {
           setEditingCustomer(null);
         }} />
       </Modal>}
+      {returnOrderId!==null && (()=>{const o=orders.find(v=>v.id===returnOrderId);if(!o)return null;return <Modal title={'مرتجعات الطلب #'+o.id} onClose={()=>setReturnOrderId(null)}><ReturnsEditor items={o.items.map(i=>{const p=products.find(p=>p.id===i.productId);return {...i,name:i.name??p?.name,salePrice:i.salePrice??p?.salePrice,cost:i.cost??p?.cost}})} records={o.returns??[]} discount={o.discount} paid={o.paid} deliveryFee={o.deliveryFee} basis={o.saleBasis??'final'} onBasis={saleBasis=>saveOrders(orders.map(v=>v.id===o.id?{...v,saleBasis}:v))} onSave={returns=>saveOrders(orders.map(v=>v.id===o.id?{...v,returns}:v))}/></Modal>})()}
       {courierEditor && <Modal title={courierEditor.original ? 'تعديل الموصّل' : 'إضافة موصّل'} onClose={() => setCourierEditor(null)}>
         <form className="form" onSubmit={e => {
           e.preventDefault();
@@ -749,6 +758,7 @@ function OrderCards({
   detailed = false,
   onEdit,
   onDelete,
+  onReturns,
 }: {
   orders: Order[];
   products: Product[];
@@ -758,6 +768,7 @@ function OrderCards({
   detailed?: boolean;
   onEdit: (order: Order) => void;
   onDelete: (order: Order) => void;
+  onReturns: (order: Order) => void;
 }) {
   const [shareId, setShareId] = useState<number | null>(null);
   const sharedOrder = orders.find(o => o.id === shareId);
@@ -779,7 +790,7 @@ function OrderCards({
             <div className="order-customer"><strong>{order.customer}</strong><span>{itemSummary}</span><small>{order.items.length} صنف/بنود · {order.deliveryType}</small></div>
             {detailed && <div className="order-contact"><span>{order.phone}</span><small>{order.date} · {order.time}</small></div>}
             <div className="order-money"><span>الإجمالي</span><strong>{omr(money.customerTotal)} ر.ع</strong><PaymentBadge status={paymentStatus(order)} /></div>
-            <div className="order-money profit"><span>الربح</span><strong>{omr(money.profit)} ر.ع</strong>{money.balance > 0 && <small className="balance">متبقٍ {omr(money.balance)}</small>}</div>
+            <div className="order-money profit">{order.saleBasis==='consignment'&&<small>بالأمانة — قيمة مبدئية حتى المرتجعات</small>}<span>الربح</span><strong>{omr(money.profit)} ر.ع</strong>{money.balance > 0 && <small className="balance">متبقٍ {omr(money.balance)}</small>}</div>
             <label className={'status-select ' + statusTone(order.status)}>
               <select value={order.status} onChange={event => onStatus(order.id, event.target.value as OrderStatus)}>
                 {statusOptions.map(status => <option key={status}>{status}</option>)}
@@ -787,7 +798,7 @@ function OrderCards({
               <ChevronDown size={15} />
             </label>
             <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <RecordActions label={'الطلب ' + order.id} onEdit={() => onEdit(order)} onDelete={() => onDelete(order)} />
+              {Math.max(order.paid-returnTotals(order.returns).refundPaid-money.customerTotal,0)>0&&<small>واجب رده: {omr(Math.max(order.paid-returnTotals(order.returns).refundPaid-money.customerTotal,0))} ر.ع</small>}<button className="text-btn" disabled={order.status==='ملغي'} onClick={()=>onReturns(order)}>مرتجعات وتالف ({returnTotals(order.returns).qty})</button><RecordActions label={'الطلب ' + order.id} onEdit={() => onEdit(order)} onDelete={() => onDelete(order)} />
               <button className="secondary mini" aria-label={'واتساب الطلب ' + order.id} onClick={() => setShareId(order.id)}><WhatsappLogo size={20} />مشاركة عبر واتساب</button>
             </div>
           </article>
@@ -811,8 +822,9 @@ function customerMessage(order: Order, products: Product[], kind: ShareKind) {
     return { name: item.name ?? product?.name ?? 'صنف', qty: item.qty, price, total: price * item.qty };
   });
   const subtotal = lines.reduce((sum, i) => sum + i.total, 0);
-  const total = Math.max(subtotal - order.discount, 0) + order.deliveryFee;
-  const balance = Math.max(total - order.paid, 0);
+  const returned=returnTotals(order.returns);
+  const total = Math.max(subtotal - order.discount-returned.credit, 0) + order.deliveryFee;
+  const balance = Math.max(total - (order.paid-returned.refundPaid), 0);
   const heading = kind === 'invoice' ? 'فاتورة الطلب' : kind === 'receipt' ? 'إيصال المدفوعات المسجلة' : 'تحديث حالة الطلب';
   const message = ['بيت الحلوى', heading + ' #' + order.id, 'العميل: ' + order.customer];
   if (kind === 'invoice') {
@@ -820,6 +832,7 @@ function customerMessage(order: Order, products: Product[], kind: ShareKind) {
     message.push('قيمة الأصناف: ' + omr(subtotal) + ' ر.ع', 'الخصم: ' + omr(order.discount) + ' ر.ع', 'رسوم التوصيل: ' + omr(order.deliveryFee) + ' ر.ع');
   }
   if (kind === 'update') message.push('حالة الطلب: ' + order.status);
+  message.push('خصم المرتجعات: '+omr(returned.credit)+' ر.ع');
   message.push('إجمالي الطلب: ' + omr(total) + ' ر.ع', 'المدفوع حتى الآن: ' + omr(order.paid) + ' ر.ع', 'المتبقي: ' + omr(balance) + ' ر.ع');
   if (kind === 'receipt') message.push('طريقة الدفع: ' + order.paymentMethod, 'هذا إيصال بإجمالي المدفوعات المسجلة للطلب، وليس إثبات دفعة جديدة.');
   message.push('موعد التسليم: ' + order.date + ' الساعة ' + order.time, 'طريقة الاستلام: ' + order.deliveryType);
@@ -1065,6 +1078,7 @@ function ProductForm({ onSubmit, initial }: { onSubmit: (product: Omit<Product, 
 }
 
 function ExpenseForm({ onSubmit }: { onSubmit: (expense: Omit<Expense, 'id'>) => void }) {
+  const [tax,setTax] = useState<TaxData>({taxMode:'unknown',taxRate:5});
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('تشغيل');
   const [amount, setAmount] = useState(0);
@@ -1078,7 +1092,7 @@ function ExpenseForm({ onSubmit }: { onSubmit: (expense: Omit<Expense, 'id'>) =>
         setError('أدخل وصف المصروف ومبلغًا أكبر من صفر.');
         return;
       }
-      onSubmit({ title, category, amount, date });
+      onSubmit({ title, category, amount, date, ...tax });
     }}>
       {error && <div className="form-error">{error}</div>}
       <Field label="وصف المصروف"><input value={title} onChange={event => setTitle(event.target.value)} placeholder="مثال: فاتورة الكهرباء" /></Field>
@@ -1087,7 +1101,7 @@ function ExpenseForm({ onSubmit }: { onSubmit: (expense: Omit<Expense, 'id'>) =>
         <Field label="المبلغ"><input type="number" min="0" step="0.001" value={amount} onChange={event => setAmount(Number(event.target.value))} /></Field>
         <Field label="التاريخ"><input type="date" value={date} onChange={event => setDate(event.target.value)} /></Field>
       </div>
-      <button className="primary wide" type="submit">حفظ المصروف</button>
+      <TaxFields amount={amount} value={tax} onChange={setTax}/><button className="primary wide" type="submit">حفظ المصروف</button>
     </form>
   );
 }

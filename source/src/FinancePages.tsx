@@ -1,12 +1,13 @@
+import { TaxFields, taxValues, type TaxData } from './Accounting';
 import { useState } from 'react';
 import { Basket, Plus, PencilSimple, Trash, X, Wallet } from '@phosphor-icons/react';
 
-type Purchase = { id: number; material: string; quantity: number; unit: string; unitPrice: number; supplier: string; date: string; notes: string; purchaseMode?: 'direct' | 'carton'; cartons?: number; unitsPerCarton?: number; cartonPrice?: number };
-type Expense = { id: number; title: string; category: string; amount: number; date: string };
+type Purchase = TaxData & { id: number; material: string; quantity: number; unit: string; unitPrice: number; supplier: string; date: string; notes: string; purchaseMode?: 'direct' | 'carton'; cartons?: number; unitsPerCarton?: number; cartonPrice?: number };
+type Expense = TaxData & { id: number; title: string; category: string; amount: number; date: string };
 const money = (value: number) => value.toLocaleString('ar-OM', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + ' ر.ع';
 const dateToday = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const blank = (): Omit<Purchase, 'id'> => ({ material: '', quantity: 1, unit: 'كجم', unitPrice: 0, supplier: '', date: dateToday(), notes: '', purchaseMode: 'direct', cartons: 1, unitsPerCarton: 40, cartonPrice: 0 });
-const purchaseTotal = (row: Purchase) => row.purchaseMode === 'carton' ? (row.cartons ?? 0) * (row.cartonPrice ?? 0) : row.quantity * row.unitPrice;
+const purchaseTotal = (row: Purchase) => taxValues(row.purchaseMode === 'carton' ? (row.cartons ?? 0) * (row.cartonPrice ?? 0) : row.quantity * row.unitPrice,row).total;
 
 export function PurchasesPage() {
   const [rows, setRows] = useState<Purchase[]>(() => {
@@ -36,7 +37,7 @@ export function PurchasesPage() {
       {filtered.length === 0 && <div className='empty'>لا توجد مشتريات مطابقة. أضف أول عملية شراء.</div>}
       {filtered.map(row => <article className='finance-row' key={row.id}>
         <div className='expense-icon'><Basket size={22} /></div><div className='grow'><strong>{row.material}</strong><span>{row.quantity.toLocaleString('ar-OM')} {row.unit} × {money(row.unitPrice)} · {row.date}</span>{row.purchaseMode === 'carton' && <span>{row.cartons} كرتون × {row.unitsPerCarton} {row.unit} في الكرتون · سعر الكرتون {money(row.cartonPrice ?? 0)}</span>}<span>{row.supplier || 'المورد غير محدد'}{row.notes ? ' · ' + row.notes : ''}</span></div>
-        <strong>{money(purchaseTotal(row))}</strong><div className='finance-actions'><button aria-label={'تعديل ' + row.material} onClick={() => start(row)}><PencilSimple size={18} /></button><button aria-label={'حذف ' + row.material} onClick={() => { if (window.confirm('حذف عملية شراء ' + row.material + '؟')) save(rows.filter(r => r.id !== row.id)); }}><Trash size={18} /></button></div>
+        <span>الضريبة: {money(taxValues(row.purchaseMode==='carton'?(row.cartons??0)*(row.cartonPrice??0):row.quantity*row.unitPrice,row).tax)} ({row.taxMode??'غير محددة'})</span><strong>{money(purchaseTotal(row))}</strong><div className='finance-actions'><button aria-label={'تعديل ' + row.material} onClick={() => start(row)}><PencilSimple size={18} /></button><button aria-label={'حذف ' + row.material} onClick={() => { if (window.confirm('حذف عملية شراء ' + row.material + '؟')) save(rows.filter(r => r.id !== row.id)); }}><Trash size={18} /></button></div>
       </article>)}
     </div>
     {open && <div className='modal-backdrop'><div className='modal' role='dialog' aria-modal='true' aria-label='تسجيل مشتريات'><div className='modal-head'><h3>{editing === null ? 'إضافة مشتريات' : 'تعديل مشتريات'}</h3><button aria-label='إغلاق' onClick={() => setOpen(false)}><X size={20} /></button></div>
@@ -73,7 +74,7 @@ export function PurchasesPage() {
           <div className='form-summary'><span>تكلفة {draft.unit} واحدة</span><strong>{unitPrice.toLocaleString('ar-OM', { maximumFractionDigits: 6 })} ر.ع</strong></div>
           <p className='finance-note'>تكلفة الوحدة = سعر الكرتون ÷ عدد الوحدات فيه. عرض التكلفة تقريبي حتى 6 منازل؛ الإجمالي يُحسب من سعر الكرتون مباشرة.</p>
         </div>}
-        <div className='form-summary'><span>الإجمالي</span><strong>{money(total)}</strong></div><button className='primary wide' type='submit'>حفظ المشتريات</button>
+        <TaxFields amount={total} value={draft} onChange={t=>setDraft({...draft,...t})}/><div className='form-summary'><span>تكلفة الوحدة النهائية</span><strong>{(taxValues(total,draft).total/(quantity||1)).toFixed(6)} ر.ع</strong></div><div className='form-summary'><span>الإجمالي</span><strong>{money(taxValues(total,draft).total)}</strong></div><button className='primary wide' type='submit'>حفظ المشتريات</button>
       </form></div></div>}
   </section>;
 }
@@ -88,17 +89,17 @@ export function ExpensesPage({ rows, onSave, onAdd }: { rows: Expense[]; onSave:
   const filtered = rows.filter(r => [r.title, r.category].join(' ').includes(search.trim()) && (!from || r.date >= from) && (!to || r.date <= to) && (!category || r.category === category));
   return <section className='page'>
     <div className='page-intro'><div><h2>المصاريف</h2><p>تابع الكهرباء والإنترنت والتسويق والصيانة والمصاريف العامة.</p></div><button className='primary' onClick={onAdd}><Plus size={18} />إضافة مصروف</button></div>
-    <div className='kpis two'><Summary icon={<Wallet />} title='المصاريف في الفترة' value={money(filtered.reduce((s, r) => s + r.amount, 0))} /><Summary icon={<Wallet />} title='عدد المصاريف' value={String(filtered.length)} /></div>
+    <div className='kpis two'><Summary icon={<Wallet />} title='المصاريف في الفترة' value={money(filtered.reduce((s, r) => s + taxValues(r.amount,r).total, 0))} /><Summary icon={<Wallet />} title='عدد المصاريف' value={String(filtered.length)} /></div>
     <Filters search={search} setSearch={setSearch} from={from} setFrom={setFrom} to={to} setTo={setTo} placeholder='ابحث بوصف المصروف أو التصنيف' />
     <label className='field'><span>تصنيف المصروف</span><select value={category} onChange={e => setCategory(e.target.value)}><option value=''>جميع التصنيفات</option>{Array.from(new Set(rows.map(r => r.category))).map(c => <option key={c}>{c}</option>)}</select></label>
     <p className='finance-note'>سجل شراء الطحين والسكر والمواد في المشتريات. سجل هنا المصاريف العامة التي لم تدخل ضمن تكلفة إنتاج الأصناف، لتجنب تكرار احتساب التكلفة.</p>
-    <div className='panel finance-list'>{!filtered.length && <div className='empty'>لا توجد مصاريف مطابقة للفلاتر.</div>}{filtered.map(row => <article className='finance-row' key={row.id}><div className='expense-icon'><Wallet size={22} /></div><div className='grow'><strong>{row.title}</strong><span>{row.category} · {row.date}</span></div><strong className='negative'>{money(row.amount)}</strong><div className='finance-actions'><button aria-label={'تعديل ' + row.title} onClick={() => { setEditing({ ...row }); setError(''); }}><PencilSimple size={18} /></button><button aria-label={'حذف ' + row.title} onClick={() => { if (window.confirm('حذف المصروف ' + row.title + '؟')) onSave(rows.filter(r => r.id !== row.id)); }}><Trash size={18} /></button></div></article>)}</div>
+    <div className='panel finance-list'>{!filtered.length && <div className='empty'>لا توجد مصاريف مطابقة للفلاتر.</div>}{filtered.map(row => <article className='finance-row' key={row.id}><div className='expense-icon'><Wallet size={22} /></div><div className='grow'><strong>{row.title}</strong><span>{row.category} · {row.date}</span></div><span>الضريبة: {money(taxValues(row.amount,row).tax)} ({row.taxMode??'غير محددة'})</span><strong className='negative'>{money(taxValues(row.amount,row).total)}</strong><div className='finance-actions'><button aria-label={'تعديل ' + row.title} onClick={() => { setEditing({ ...row }); setError(''); }}><PencilSimple size={18} /></button><button aria-label={'حذف ' + row.title} onClick={() => { if (window.confirm('حذف المصروف ' + row.title + '؟')) onSave(rows.filter(r => r.id !== row.id)); }}><Trash size={18} /></button></div></article>)}</div>
     {editing && <div className='modal-backdrop'><div className='modal' role='dialog' aria-modal='true' aria-label='تعديل مصروف'><div className='modal-head'><h3>تعديل مصروف</h3><button aria-label='إغلاق' onClick={() => setEditing(null)}><X size={20} /></button></div><form className='form' onSubmit={e => { e.preventDefault(); if (!editing.title.trim() || !editing.category.trim() || !editing.date || !Number.isFinite(editing.amount) || editing.amount <= 0) { setError('أدخل وصفًا وتصنيفًا وتاريخًا ومبلغًا أكبر من صفر.'); return; } onSave(rows.map(r => r.id === editing.id ? editing : r)); setEditing(null); }}>
       {error && <div className='form-error' role='alert'>{error}</div>}
       <label className='field'><span>وصف المصروف</span><input value={editing.title} onChange={e => setEditing({ ...editing, title: e.target.value })} /></label>
       <label className='field'><span>التصنيف</span><input value={editing.category} onChange={e => setEditing({ ...editing, category: e.target.value })} /></label>
       <label className='field'><span>المبلغ</span><input type='number' min='0' step='0.001' value={editing.amount} onChange={e => setEditing({ ...editing, amount: Number(e.target.value) })} /></label>
-      <label className='field'><span>التاريخ</span><input type='date' value={editing.date} onChange={e => setEditing({ ...editing, date: e.target.value })} /></label><button className='primary wide' type='submit'>حفظ المصروف</button>
+      <TaxFields amount={editing.amount} value={editing} onChange={t=>setEditing({...editing,...t})}/><label className='field'><span>التاريخ</span><input type='date' value={editing.date} onChange={e => setEditing({ ...editing, date: e.target.value })} /></label><button className='primary wide' type='submit'>حفظ المصروف</button>
     </form></div></div>}
   </section>;
 }
