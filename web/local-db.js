@@ -32,7 +32,8 @@
     bar.style.cssText = 'position:relative;z-index:22;padding:10px;background:#ecf5ed;color:#305c37;text-align:center;direction:rtl;font-family:Tahoma';
     const title = document.createElement('span'); title.textContent = 'نسخة محلية • البيانات محفوظة في جهازك '; bar.append(title);
     const backup = document.createElement('a'); backup.href='/api/backup'; backup.textContent='تنزيل نسخة احتياطية'; backup.style.margin='0 12px'; bar.append(backup);
-    const excel = document.createElement('a'); excel.href='/api/excel'; excel.textContent='تصدير Excel'; excel.style.margin='0 12px'; bar.append(excel);
+    const excel = document.createElement('a'); excel.href='/api/excel'; excel.textContent='تصدير Excel — جميع البيانات'; excel.style.margin='0 12px'; bar.append(excel);
+    excel.onclick = function(event) { const count = JSON.parse(storage.getItem('sweet-orders') || '[]').length; if (!count) { if (!confirm('لا توجد طلبات محفوظة في قاعدة البيانات الحالية. تأكد من مجلد data أو النسخة الاحتياطية. هل تريد تصدير البيانات الأخرى؟')) event.preventDefault(); } };
     const restore = document.createElement('button'); restore.textContent='استعادة / استيراد البيانات'; bar.append(restore);
     const file = document.createElement('input'); file.type='file'; file.accept='.json'; file.hidden=true; bar.append(file);
     restore.onclick=()=>file.click();

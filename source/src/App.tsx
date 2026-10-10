@@ -1007,17 +1007,17 @@ function OrderForm({ products, customers, onSubmit, initial, couriers }: { couri
               setCourierPay(0);
             }
           }}><option>استلام من المشروع</option><option>توصيل</option></select></Field>
-          {deliveryType === 'توصيل' && <Field label="رسوم التوصيل على العميل"><input type="number" min="0" step="0.1" value={deliveryFee} onChange={event => setDeliveryFee(Number(event.target.value))} /></Field>}
+          {deliveryType === 'توصيل' && <Field label="رسوم التوصيل على العميل"><input type="number" min="0" step="0.001" value={deliveryFee} onChange={event => setDeliveryFee(Number(event.target.value))} /></Field>}
           {deliveryType === 'توصيل' && <Field label="الموصّل"><select value={courier} onChange={event => setCourier(event.target.value)}><option value="بدون توصيل">اختر الموصّل</option>{couriers.filter(name => name !== 'بدون توصيل').map(name => <option key={name}>{name}</option>)}</select></Field>}
-          {deliveryType === 'توصيل' && <Field label="أجر الموصّل"><input type="number" min="0" step="0.1" value={courierPay} onChange={event => setCourierPay(Number(event.target.value))} /></Field>}
+          {deliveryType === 'توصيل' && <Field label="أجر الموصّل"><input type="number" min="0" step="0.001" value={courierPay} onChange={event => setCourierPay(Number(event.target.value))} /></Field>}
         </div>
       </section>
 
       <section className="form-section">
         <div className="form-section-head"><div><span>4</span><strong>الدفع</strong></div><small>حالة الدفع تُحسب تلقائيًا</small></div>
         <div className="field-grid">
-          <Field label="خصم"><input type="number" min="0" step="0.1" value={discount} onChange={event => setDiscount(Number(event.target.value))} /></Field>
-          <Field label="المبلغ المدفوع"><input type="number" min="0" step="0.1" value={paid} onChange={event => setPaid(Number(event.target.value))} /></Field>
+          <Field label="خصم"><input type="number" min="0" step="0.001" value={discount} onChange={event => setDiscount(Number(event.target.value))} /></Field>
+          <Field label="المبلغ المدفوع"><input type="number" min="0" step="0.001" value={paid} onChange={event => setPaid(Number(event.target.value))} /></Field>
           <Field label="طريقة الدفع"><select value={paymentMethod} onChange={event => setPaymentMethod(event.target.value as PaymentMethod)}><option>غير محدد</option><option>تحويل بنكي</option><option>نقدي</option><option>بطاقة/رابط</option></select></Field>
           <Field label="ملاحظات"><input value={notes} onChange={event => setNotes(event.target.value)} placeholder="كتابة على الطلب، توقيت التواصل..." /></Field>
         </div>
@@ -1055,8 +1055,8 @@ function ProductForm({ onSubmit, initial }: { onSubmit: (product: Omit<Product, 
       <Field label="اسم الصنف"><input value={name} onChange={event => setName(event.target.value)} placeholder="مثال: بوكس براونيز" /></Field>
       <div className="field-grid">
         <Field label="الوحدة"><input value={unit} onChange={event => setUnit(event.target.value)} /></Field>
-        <Field label="سعر البيع"><input type="number" min="0" step="0.1" value={salePrice} onChange={event => setSalePrice(Number(event.target.value))} /></Field>
-        <Field label="تكلفة الإنتاج"><input type="number" min="0" step="0.1" value={cost} onChange={event => setCost(Number(event.target.value))} /></Field>
+        <Field label="سعر البيع"><input type="number" min="0" step="0.001" value={salePrice} onChange={event => setSalePrice(Number(event.target.value))} /></Field>
+        <Field label="تكلفة الإنتاج"><input type="number" min="0" step="0.001" value={cost} onChange={event => setCost(Number(event.target.value))} /></Field>
       </div>
       <div className="form-summary"><span>هامش الصنف</span><strong>{omr(salePrice - cost)} ر.ع</strong></div>
       <button className="primary wide" type="submit">حفظ الصنف</button>
