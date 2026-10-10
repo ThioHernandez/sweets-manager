@@ -1,5 +1,5 @@
 """Dependency-free XLSX export. All user text is written as literal cells."""
-import io, zipfile, math
+import io, zipfile, math, re
 from xml.sax.saxutils import escape
 
 def tax_values(amount,r):
@@ -43,6 +43,7 @@ def sheets_workbook(sheets):
         while n: n,r=divmod(n-1,26);out=chr(65+r)+out
         return out
     def cell(v,ref,header=False):
+        if isinstance(v,str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}',v): v=v[8:10]+'/'+v[5:7]+'/'+v[:4]
         if isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v):return f'<c r="{ref}" s="{2 if isinstance(v,float) else 0}"><v>{v}</v></c>'
         return f'<c r="{ref}" t="inlineStr" s="{1 if header else 0}"><is><t xml:space="preserve">{escape(clean(v if v is not None else ""))}</t></is></c>'
     out=io.BytesIO()

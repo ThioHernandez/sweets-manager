@@ -1,3 +1,4 @@
+import {DateInput,displayDate} from './DateInput';
 import { TaxFields, taxValues, returnTotals, type TaxData, type ReturnRecord } from './Accounting';
 import { ReturnsEditor } from './ReturnsEditor';
 import { useMemo, useState } from 'react';
@@ -788,7 +789,7 @@ function OrderCards({
           <article className={detailed ? 'order-row detailed' : 'order-row'} key={order.id}>
             <div className="order-id"><span>طلب</span><strong>#{order.id}</strong></div>
             <div className="order-customer"><strong>{order.customer}</strong><span>{itemSummary}</span><small>{order.items.length} صنف/بنود · {order.deliveryType}</small></div>
-            {detailed && <div className="order-contact"><span>{order.phone}</span><small>{order.date} · {order.time}</small></div>}
+            {detailed && <div className="order-contact"><span>{order.phone}</span><small>{displayDate(order.date)} · {order.time}</small></div>}
             <div className="order-money"><span>الإجمالي</span><strong>{omr(money.customerTotal)} ر.ع</strong><PaymentBadge status={paymentStatus(order)} /></div>
             <div className="order-money profit">{order.saleBasis==='consignment'&&<small>بالأمانة — قيمة مبدئية حتى المرتجعات</small>}<span>الربح</span><strong>{omr(money.profit)} ر.ع</strong>{money.balance > 0 && <small className="balance">متبقٍ {omr(money.balance)}</small>}</div>
             <label className={'status-select ' + statusTone(order.status)}>
@@ -835,7 +836,7 @@ function customerMessage(order: Order, products: Product[], kind: ShareKind) {
   message.push('خصم المرتجعات: '+omr(returned.credit)+' ر.ع');
   message.push('إجمالي الطلب: ' + omr(total) + ' ر.ع', 'المدفوع حتى الآن: ' + omr(order.paid) + ' ر.ع', 'المتبقي: ' + omr(balance) + ' ر.ع');
   if (kind === 'receipt') message.push('طريقة الدفع: ' + order.paymentMethod, 'هذا إيصال بإجمالي المدفوعات المسجلة للطلب، وليس إثبات دفعة جديدة.');
-  message.push('موعد التسليم: ' + order.date + ' الساعة ' + order.time, 'طريقة الاستلام: ' + order.deliveryType);
+  message.push('موعد التسليم: ' + displayDate(order.date) + ' الساعة ' + order.time, 'طريقة الاستلام: ' + order.deliveryType);
   if (order.deliveryType === 'توصيل' && order.address) message.push('العنوان: ' + order.address);
   message.push('شكرًا لاختياركم بيت الحلوى.');
   return message.join('\n');
@@ -1009,7 +1010,7 @@ function OrderForm({ products, customers, onSubmit, initial, couriers }: { couri
       <section className="form-section">
         <div className="form-section-head"><div><span>3</span><strong>التسليم والتوصيل</strong></div></div>
         <div className="field-grid">
-          <Field label="تاريخ التسليم"><input type="date" value={date} onChange={event => setDate(event.target.value)} /></Field>
+          <Field label="تاريخ التسليم"><DateInput  value={date} onChange={event => setDate(event.target.value)} /></Field>
           <Field label="وقت التسليم"><input type="time" value={time} onChange={event => setTime(event.target.value)} /></Field>
           <Field label="طريقة الاستلام"><select value={deliveryType} onChange={event => {
             const value = event.target.value as DeliveryType;
@@ -1099,7 +1100,7 @@ function ExpenseForm({ onSubmit }: { onSubmit: (expense: Omit<Expense, 'id'>) =>
       <div className="field-grid">
         <Field label="التصنيف"><select value={category} onChange={event => setCategory(event.target.value)}><option>تشغيل</option><option>كهرباء</option><option>إنترنت</option><option>صيانة</option><option>إيجار</option><option>تغليف</option><option>تسويق</option><option>نقل</option><option>أخرى</option></select></Field>
         <Field label="المبلغ"><input type="number" min="0" step="0.001" value={amount} onChange={event => setAmount(Number(event.target.value))} /></Field>
-        <Field label="التاريخ"><input type="date" value={date} onChange={event => setDate(event.target.value)} /></Field>
+        <Field label="التاريخ"><DateInput  value={date} onChange={event => setDate(event.target.value)} /></Field>
       </div>
       <TaxFields amount={amount} value={tax} onChange={setTax}/><button className="primary wide" type="submit">حفظ المصروف</button>
     </form>
@@ -1120,7 +1121,7 @@ function DeliveryForm({ initial, onSubmit, couriers }: { couriers: string[]; ini
     {error && <div className="form-error">{error}</div>}
     <Field label="العنوان / المنطقة"><input value={draft.address} onChange={e => setDraft({ ...draft, address: e.target.value })} /></Field>
     <div className="field-grid">
-      <Field label="تاريخ التسليم"><input type="date" value={draft.date} onChange={e => setDraft({ ...draft, date: e.target.value })} /></Field>
+      <Field label="تاريخ التسليم"><DateInput  value={draft.date} onChange={e => setDraft({ ...draft, date: e.target.value })} /></Field>
       <Field label="وقت التسليم"><input type="time" value={draft.time} onChange={e => setDraft({ ...draft, time: e.target.value })} /></Field>
       <Field label="الموصّل"><select value={draft.courier} onChange={e => setDraft({ ...draft, courier: e.target.value })}>{couriers.filter(c => c !== 'بدون توصيل').map(c => <option key={c}>{c}</option>)}</select></Field>
       <Field label="أجر الموصّل"><input type="number" min="0" step="0.001" value={draft.courierPay} onChange={e => setDraft({ ...draft, courierPay: Number(e.target.value) })} /></Field>
