@@ -295,8 +295,8 @@ function App() {
   };
 
   const saveOrders = (value: Order[]) => {
-    setOrders(value);
     localStorage.setItem('sweet-orders', JSON.stringify(value));
+    setOrders(value);
   };
 
   const saveCustomers = (value: Customer[]) => {
@@ -443,7 +443,7 @@ function App() {
       <aside className={mobileOpen ? 'sidebar open' : 'sidebar'}>
         <div className="brand">
           <div className="brand-mark"><CakeSlice size={22} /></div>
-          <div><strong>بيت الحلوى</strong><span>إدارة الطلبات والتكاليف</span></div>
+          <div><strong>The Elite</strong><span>إدارة الطلبات والتكاليف</span></div>
         </div>
         <nav>
           {nav.map(({ key, label, icon: Icon }) => (
@@ -689,7 +689,7 @@ function App() {
           setEditingCustomer(null);
         }} />
       </Modal>}
-      {returnOrderId!==null && (()=>{const o=orders.find(v=>v.id===returnOrderId);if(!o)return null;return <Modal title={'مرتجعات الطلب #'+o.id} onClose={()=>setReturnOrderId(null)}><ReturnsEditor items={o.items.map(i=>{const p=products.find(p=>p.id===i.productId);return {...i,name:i.name??p?.name,salePrice:i.salePrice??p?.salePrice,cost:i.cost??p?.cost}})} records={o.returns??[]} discount={o.discount} paid={o.paid} deliveryFee={o.deliveryFee} basis={o.saleBasis??'final'} onBasis={saleBasis=>saveOrders(orders.map(v=>v.id===o.id?{...v,saleBasis}:v))} onSave={returns=>saveOrders(orders.map(v=>v.id===o.id?{...v,returns}:v))}/></Modal>})()}
+      {returnOrderId!==null && (()=>{const o=orders.find(v=>v.id===returnOrderId);if(!o)return null;return <Modal title={'مرتجعات الطلب #'+o.id} onClose={()=>setReturnOrderId(null)}><ReturnsEditor items={o.items.map(i=>{const p=products.find(p=>p.id===i.productId);return {...i,name:i.name??p?.name,salePrice:i.salePrice??p?.salePrice,cost:i.cost??p?.cost}})} records={o.returns??[]} discount={o.discount} paid={o.paid} deliveryFee={o.deliveryFee} basis={o.saleBasis??'final'} onBasis={saleBasis=>saveOrders(orders.map(v=>v.id===o.id?{...v,saleBasis}:v))} onSave={returns=>{saveOrders(orders.map(v=>v.id===o.id?{...v,returns}:v));if(returns.length>(o.returns?.length??0)){setReturnOrderId(null);window.alert('تم حفظ المرتجع وتحديث قيمة الطلب بنجاح.');}}}/></Modal>})()}
       {courierEditor && <Modal title={courierEditor.original ? 'تعديل الموصّل' : 'إضافة موصّل'} onClose={() => setCourierEditor(null)}>
         <form className="form" onSubmit={e => {
           e.preventDefault();
@@ -827,7 +827,7 @@ function customerMessage(order: Order, products: Product[], kind: ShareKind) {
   const total = Math.max(subtotal - order.discount-returned.credit, 0) + order.deliveryFee;
   const balance = Math.max(total - (order.paid-returned.refundPaid), 0);
   const heading = kind === 'invoice' ? 'فاتورة الطلب' : kind === 'receipt' ? 'إيصال المدفوعات المسجلة' : 'تحديث حالة الطلب';
-  const message = ['بيت الحلوى', heading + ' #' + order.id, 'العميل: ' + order.customer];
+  const message = ['The Elite', heading + ' #' + order.id, 'العميل: ' + order.customer];
   if (kind === 'invoice') {
     message.push(...lines.map(i => i.name + ' × ' + i.qty + ' | سعر الوحدة: ' + omr(i.price) + ' ر.ع | الإجمالي: ' + omr(i.total) + ' ر.ع'));
     message.push('قيمة الأصناف: ' + omr(subtotal) + ' ر.ع', 'الخصم: ' + omr(order.discount) + ' ر.ع', 'رسوم التوصيل: ' + omr(order.deliveryFee) + ' ر.ع');
@@ -838,7 +838,7 @@ function customerMessage(order: Order, products: Product[], kind: ShareKind) {
   if (kind === 'receipt') message.push('طريقة الدفع: ' + order.paymentMethod, 'هذا إيصال بإجمالي المدفوعات المسجلة للطلب، وليس إثبات دفعة جديدة.');
   message.push('موعد التسليم: ' + displayDate(order.date) + ' الساعة ' + order.time, 'طريقة الاستلام: ' + order.deliveryType);
   if (order.deliveryType === 'توصيل' && order.address) message.push('العنوان: ' + order.address);
-  message.push('شكرًا لاختياركم بيت الحلوى.');
+  message.push('شكرًا لاختياركم The Elite.');
   return message.join('\n');
 }
 function WhatsAppShare({ order, products }: { order: Order; products: Product[] }) {
@@ -859,7 +859,8 @@ function WhatsAppShare({ order, products }: { order: Order; products: Product[] 
     {!number && <div className="form-error">أدخل رقمًا صحيحًا مع رمز الدولة.</div>}
     {receiptBlocked && <div className="form-error">لا يمكن مشاركة إيصال دفع؛ لا توجد مبالغ مدفوعة مسجلة لهذا الطلب.</div>}
     <Field label="معاينة الرسالة"><textarea value={message} onChange={e => setMessage(e.target.value)} rows={12} style={{ width: '100%', padding: 14, border: '1px solid #e1d6d0', borderRadius: 12, font: 'inherit', lineHeight: 1.9, resize: 'vertical' }} /></Field>
-    {enabled ? <a className="primary wide" style={{ textDecoration: 'none' }} href={'https://wa.me/' + number + '?text=' + encodeURIComponent(message)} target="_blank" rel="noopener noreferrer"><WhatsappLogo size={20} />فتح واتساب للإرسال</a> : <button className="primary wide" disabled>فتح واتساب للإرسال</button>}
+    {enabled ? <a className="primary wide" style={{ textDecoration: 'none' }} href={(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)?'https://wa.me/'+number+'?text=':'https://web.whatsapp.com/send?phone='+number+'&text=')+encodeURIComponent(message)} target="_blank" rel="noopener noreferrer"><WhatsappLogo size={20} />فتح واتساب للإرسال</a> : <button className="primary wide" disabled>فتح واتساب للإرسال</button>}
+    <p className="finance-note">على الكمبيوتر يفتح WhatsApp Web في تبويب جديد؛ اربط حسابك إذا ظهرت شاشة QR، ثم راجع الرسالة واضغط إرسال داخل واتساب.</p>
     <button className="secondary wide" style={{ marginTop: 10 }} disabled={!message.trim() || receiptBlocked} onClick={async () => {
       try { await navigator.clipboard.writeText(message); setNotice('تم نسخ الرسالة.'); }
       catch { setNotice('تعذر النسخ التلقائي؛ حدد نص المعاينة وانسخه يدويًا.'); }
