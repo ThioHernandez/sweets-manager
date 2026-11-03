@@ -689,7 +689,7 @@ function App() {
           setEditingCustomer(null);
         }} />
       </Modal>}
-      {returnOrderId!==null && (()=>{const o=orders.find(v=>v.id===returnOrderId);if(!o)return null;return <Modal title={'مرتجعات الطلب #'+o.id} onClose={()=>setReturnOrderId(null)}><ReturnsEditor items={o.items.map(i=>{const p=products.find(p=>p.id===i.productId);return {...i,name:i.name??p?.name,salePrice:i.salePrice??p?.salePrice,cost:i.cost??p?.cost}})} records={o.returns??[]} discount={o.discount} paid={o.paid} deliveryFee={o.deliveryFee} basis={o.saleBasis??'final'} onBasis={saleBasis=>saveOrders(orders.map(v=>v.id===o.id?{...v,saleBasis}:v))} onSave={returns=>{saveOrders(orders.map(v=>v.id===o.id?{...v,returns}:v));if(returns.length>(o.returns?.length??0)){setReturnOrderId(null);window.alert('تم حفظ المرتجع وتحديث قيمة الطلب بنجاح.');}}}/></Modal>})()}
+      {returnOrderId!==null && (()=>{const o=orders.find(v=>v.id===returnOrderId);if(!o)return null;return <Modal title={'مرتجعات الطلب #'+o.id} onClose={()=>setReturnOrderId(null)}><ReturnsEditor items={o.items.map(i=>{const p=products.find(p=>p.id===i.productId);return {...i,name:i.name??p?.name,salePrice:i.salePrice??p?.salePrice,cost:i.cost??p?.cost}})} records={o.returns??[]} discount={o.discount} paid={o.paid} deliveryFee={o.deliveryFee} basis={o.saleBasis??'final'} onBasis={saleBasis=>saveOrders(orders.map(v=>v.id===o.id?{...v,saleBasis}:v))} onSave={returns=>saveOrders(orders.map(v=>v.id===o.id?{...v,returns}:v))}/></Modal>})()}
       {courierEditor && <Modal title={courierEditor.original ? 'تعديل الموصّل' : 'إضافة موصّل'} onClose={() => setCourierEditor(null)}>
         <form className="form" onSubmit={e => {
           e.preventDefault();
