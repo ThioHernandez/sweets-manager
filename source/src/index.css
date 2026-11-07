@@ -2101,3 +2101,26 @@ select:focus-visible {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* Viewport dialogs stay independent of page animations and list length. */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.modal-backdrop > .modal {
+  min-height: 0;
+  max-height: calc(100vh - 36px);
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: 680px) {
+  .modal-backdrop > .modal {
+    max-height: calc(100vh - 18px);
+    max-height: calc(100dvh - 18px);
+  }
+}

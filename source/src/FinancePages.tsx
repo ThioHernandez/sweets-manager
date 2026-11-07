@@ -1,3 +1,4 @@
+import { ModalLayer } from './ModalLayer';
 import {DateInput,displayDate} from './DateInput';
 import { TaxFields, taxValues, type TaxData } from './Accounting';
 import { useState } from 'react';
@@ -41,7 +42,7 @@ export function PurchasesPage() {
         <span>الضريبة: {money(taxValues(row.purchaseMode==='carton'?(row.cartons??0)*(row.cartonPrice??0):row.quantity*row.unitPrice,row).tax)} ({row.taxMode??'غير محددة'})</span><strong>{money(purchaseTotal(row))}</strong><div className='finance-actions'><button aria-label={'تعديل ' + row.material} onClick={() => start(row)}><PencilSimple size={18} /></button><button aria-label={'حذف ' + row.material} onClick={() => { if (window.confirm('حذف عملية شراء ' + row.material + '؟')) save(rows.filter(r => r.id !== row.id)); }}><Trash size={18} /></button></div>
       </article>)}
     </div>
-    {open && <div className='modal-backdrop'><div className='modal' role='dialog' aria-modal='true' aria-label='تسجيل مشتريات'><div className='modal-head'><h3>{editing === null ? 'إضافة مشتريات' : 'تعديل مشتريات'}</h3><button aria-label='إغلاق' onClick={() => setOpen(false)}><X size={20} /></button></div>
+    {open && <ModalLayer><div className='modal' role='dialog' aria-modal='true' aria-label='تسجيل مشتريات'><div className='modal-head'><h3>{editing === null ? 'إضافة مشتريات' : 'تعديل مشتريات'}</h3><button aria-label='إغلاق' onClick={() => setOpen(false)}><X size={20} /></button></div>
       <form className='form' onSubmit={event => {
         event.preventDefault();
         if (isCarton && (!Number.isInteger(draft.cartons) || (draft.cartons ?? 0) <= 0 || !Number.isInteger(draft.unitsPerCarton) || (draft.unitsPerCarton ?? 0) <= 0 || !Number.isFinite(draft.cartonPrice) || (draft.cartonPrice ?? 0) <= 0)) {
@@ -76,7 +77,7 @@ export function PurchasesPage() {
           <p className='finance-note'>تكلفة الوحدة = سعر الكرتون ÷ عدد الوحدات فيه. عرض التكلفة تقريبي حتى 6 منازل؛ الإجمالي يُحسب من سعر الكرتون مباشرة.</p>
         </div>}
         <TaxFields amount={total} value={draft} onChange={t=>setDraft({...draft,...t})}/><div className='form-summary'><span>تكلفة الوحدة النهائية</span><strong>{(taxValues(total,draft).total/(quantity||1)).toFixed(6)} ر.ع</strong></div><div className='form-summary'><span>الإجمالي</span><strong>{money(taxValues(total,draft).total)}</strong></div><button className='primary wide' type='submit'>حفظ المشتريات</button>
-      </form></div></div>}
+      </form></div></ModalLayer>}
   </section>;
 }
 
@@ -95,13 +96,13 @@ export function ExpensesPage({ rows, onSave, onAdd }: { rows: Expense[]; onSave:
     <label className='field'><span>تصنيف المصروف</span><select value={category} onChange={e => setCategory(e.target.value)}><option value=''>جميع التصنيفات</option>{Array.from(new Set(rows.map(r => r.category))).map(c => <option key={c}>{c}</option>)}</select></label>
     <p className='finance-note'>سجل شراء الطحين والسكر والمواد في المشتريات. سجل هنا المصاريف العامة التي لم تدخل ضمن تكلفة إنتاج الأصناف، لتجنب تكرار احتساب التكلفة.</p>
     <div className='panel finance-list'>{!filtered.length && <div className='empty'>لا توجد مصاريف مطابقة للفلاتر.</div>}{filtered.map(row => <article className='finance-row' key={row.id}><div className='expense-icon'><Wallet size={22} /></div><div className='grow'><strong>{row.title}</strong><span>{row.category} · {displayDate(row.date)}</span></div><span>الضريبة: {money(taxValues(row.amount,row).tax)} ({row.taxMode??'غير محددة'})</span><strong className='negative'>{money(taxValues(row.amount,row).total)}</strong><div className='finance-actions'><button aria-label={'تعديل ' + row.title} onClick={() => { setEditing({ ...row }); setError(''); }}><PencilSimple size={18} /></button><button aria-label={'حذف ' + row.title} onClick={() => { if (window.confirm('حذف المصروف ' + row.title + '؟')) onSave(rows.filter(r => r.id !== row.id)); }}><Trash size={18} /></button></div></article>)}</div>
-    {editing && <div className='modal-backdrop'><div className='modal' role='dialog' aria-modal='true' aria-label='تعديل مصروف'><div className='modal-head'><h3>تعديل مصروف</h3><button aria-label='إغلاق' onClick={() => setEditing(null)}><X size={20} /></button></div><form className='form' onSubmit={e => { e.preventDefault(); if (!editing.title.trim() || !editing.category.trim() || !editing.date || !Number.isFinite(editing.amount) || editing.amount <= 0) { setError('أدخل وصفًا وتصنيفًا وتاريخًا ومبلغًا أكبر من صفر.'); return; } onSave(rows.map(r => r.id === editing.id ? editing : r)); setEditing(null); }}>
+    {editing && <ModalLayer><div className='modal' role='dialog' aria-modal='true' aria-label='تعديل مصروف'><div className='modal-head'><h3>تعديل مصروف</h3><button aria-label='إغلاق' onClick={() => setEditing(null)}><X size={20} /></button></div><form className='form' onSubmit={e => { e.preventDefault(); if (!editing.title.trim() || !editing.category.trim() || !editing.date || !Number.isFinite(editing.amount) || editing.amount <= 0) { setError('أدخل وصفًا وتصنيفًا وتاريخًا ومبلغًا أكبر من صفر.'); return; } onSave(rows.map(r => r.id === editing.id ? editing : r)); setEditing(null); }}>
       {error && <div className='form-error' role='alert'>{error}</div>}
       <label className='field'><span>وصف المصروف</span><input value={editing.title} onChange={e => setEditing({ ...editing, title: e.target.value })} /></label>
       <label className='field'><span>التصنيف</span><input value={editing.category} onChange={e => setEditing({ ...editing, category: e.target.value })} /></label>
       <label className='field'><span>المبلغ</span><input type='number' min='0' step='0.001' value={editing.amount} onChange={e => setEditing({ ...editing, amount: Number(e.target.value) })} /></label>
       <TaxFields amount={editing.amount} value={editing} onChange={t=>setEditing({...editing,...t})}/><label className='field'><span>التاريخ</span><DateInput  value={editing.date} onChange={e => setEditing({ ...editing, date: e.target.value })} /></label><button className='primary wide' type='submit'>حفظ المصروف</button>
-    </form></div></div>}
+    </form></div></ModalLayer>}
   </section>;
 }
 

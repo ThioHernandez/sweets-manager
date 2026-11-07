@@ -1,3 +1,4 @@
+import { ModalLayer } from './ModalLayer';
 import {DateInput,displayDate} from './DateInput';
 import { TaxFields, taxValues, returnTotals, type TaxData, type ReturnRecord } from './Accounting';
 import { ReturnsEditor } from './ReturnsEditor';
@@ -871,12 +872,12 @@ function WhatsAppShare({ order, products }: { order: Order; products: Product[] 
 }
 function Modal({ title, children, onClose, wide = false }: { title: string; children: React.ReactNode; onClose: () => void; wide?: boolean }) {
   return (
-    <div className="modal-backdrop">
-      <div className={wide ? 'modal modal-wide' : 'modal'}>
-        <div className="modal-head"><h3>{title}</h3><button onClick={onClose} aria-label="إغلاق"><X /></button></div>
+    <ModalLayer>
+      <div className={wide ? 'modal modal-wide' : 'modal'} role="dialog" aria-modal="true" aria-label={title}>
+        <div className="modal-head"><h3>{title}</h3><button type="button" onClick={onClose} aria-label="إغلاق"><X /></button></div>
         {children}
       </div>
-    </div>
+    </ModalLayer>
   );
 }
 
